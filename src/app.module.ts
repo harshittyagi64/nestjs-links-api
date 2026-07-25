@@ -1,23 +1,39 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import * as Joi from 'joi';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { LinksController } from './links/links.controller';
-import { LinksService } from './links/links.service';
+
+import { LinksModule } from './links/links.module';
+import { CacheModule } from './cache/cache.module';
 import { RedirectController } from './redirect/redirect.controller';
 
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validationSchema: Joi.object({
-        PORT: Joi.number().default(3000),
-      }),
-    }),
+    LinksModule,
+    CacheModule,
   ],
-  controllers: [AppController, LinksController, RedirectController],
-  providers: [AppService, LinksService],
+  controllers: [
+    AppController,
+    RedirectController,
+  ],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: GlobalExceptionFilter,
+    },
+  ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}
