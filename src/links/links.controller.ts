@@ -10,6 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CreateLinkDto } from './dto/create-link.dto';
@@ -21,6 +22,7 @@ export class LinksController {
   constructor(private readonly linksService: LinksService) {}
 
   @Post()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   create(
     @Body() createLinkDto: CreateLinkDto,
     @Req() req: Request,

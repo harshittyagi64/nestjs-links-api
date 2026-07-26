@@ -5,6 +5,7 @@ import {
   Res,
   NotFoundException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { LinksService } from '../links/links.service';
 import { CacheService } from '../cache/cache.service';
@@ -17,6 +18,7 @@ export class RedirectController {
   ) {}
 
   @Get(':code')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async redirect(
     @Param('code') code: string,
     @Res() res: Response,
