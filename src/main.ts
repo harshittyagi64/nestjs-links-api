@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -12,6 +13,27 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Swagger OpenAPI Documentation
+  const config = new DocumentBuilder()
+    .setTitle('URL Shortener API')
+    .setDescription(
+      'Production-grade NestJS URL Shortener with caching and rate limiting',
+    )
+    .setVersion('1.0')
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'x-api-key',
+        in: 'header',
+        description: 'API key for tenant authentication',
+      },
+      'x-api-key',
+    )
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(3000);
 }

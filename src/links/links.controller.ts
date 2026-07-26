@@ -12,10 +12,19 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
+import {
+  ApiTags,
+  ApiSecurity,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
+
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { LinksService } from './links.service';
 
+@ApiTags('Links')
+@ApiSecurity('x-api-key')
 @Controller('links')
 @UseGuards(ApiKeyGuard)
 export class LinksController {
@@ -23,6 +32,23 @@ export class LinksController {
 
   @Post()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Create a short URL' })
+  @ApiResponse({
+    status: 201,
+    description: 'Short URL created successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request payload.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid API key.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests.',
+  })
   create(
     @Body() createLinkDto: CreateLinkDto,
     @Req() req: Request,
@@ -36,6 +62,15 @@ export class LinksController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all links for current user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Links retrieved successfully.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid API key.',
+  })
   findAll(
     @Req() req: Request,
     @Query('page') page = 1,
@@ -51,6 +86,15 @@ export class LinksController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get link by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Link found.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Link not found.',
+  })
   findOne(
     @Param('id') id: string,
     @Req() req: Request,
@@ -64,6 +108,19 @@ export class LinksController {
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Update a link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Link updated successfully.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Link not found.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests.',
+  })
   update(
     @Param('id') id: string,
     @Body() body: { long_url: string },
@@ -79,6 +136,15 @@ export class LinksController {
   }
 
   @Delete(':id')
+  @ApiOperation({ summary: 'Delete a link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Link deleted successfully.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Link not found.',
+  })
   remove(
     @Param('id') id: string,
     @Req() req: Request,

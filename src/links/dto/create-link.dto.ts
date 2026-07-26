@@ -9,8 +9,13 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLinkDto {
+  @ApiProperty({
+    description: 'Original URL to shorten',
+    example: 'https://nestjs.com',
+  })
   @IsNotEmpty()
   @IsString()
   @Transform(({ value }) =>
@@ -21,10 +26,19 @@ export class CreateLinkDto {
   })
   long_url: string;
 
+  @ApiPropertyOptional({
+    description: 'Optional expiration date',
+    example: '2026-12-31T23:59:59Z',
+  })
   @IsOptional()
   @IsDateString()
   expires_at?: string;
 
+  @ApiPropertyOptional({
+    description: 'Optional tags',
+    example: ['nestjs', 'backend'],
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
