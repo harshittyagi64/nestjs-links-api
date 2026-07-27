@@ -9,8 +9,8 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLinkDto {
   @ApiProperty({
@@ -27,13 +27,28 @@ export class CreateLinkDto {
   })
   long_url: string;
 
+
   @ApiPropertyOptional({
-    description: 'Optional expiration date',
-    example: '2026-12-31T23:59:59Z',
+    description: 'Optional expiration timestamp in ISO 8601 format',
+    example: '2026-12-31T23:59:59.000Z',
   })
   @IsOptional()
   @IsDateString()
   expires_at?: string;
+
+
+  @ApiPropertyOptional({
+    description: 'Optional custom short code / vanity alias',
+    example: 'my-promo',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-zA-Z0-9_-]+$/, {
+    message:
+      'Custom code can only contain alphanumeric characters, hyphens, and underscores',
+  })
+  custom_code?: string;
+
 
   @ApiPropertyOptional({
     description: 'Optional tags',
@@ -46,4 +61,4 @@ export class CreateLinkDto {
   @ArrayMaxSize(5)
   @MaxLength(20, { each: true })
   tags?: string[];
-} 
+}

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  ConflictException,
 } from '@nestjs/common';
 
 import { CreateLinkDto } from './dto/create-link.dto';
@@ -40,8 +41,9 @@ export class LinksService {
     return randomBytes(4).toString('hex');
   }
 
+
   /**
-   * Check if link is expired
+   * Check link expiration
    */
   isExpired(link: Link): boolean {
     if (!link.expires_at) return false;
@@ -49,39 +51,78 @@ export class LinksService {
     return new Date() > new Date(link.expires_at);
   }
 
+
   /**
    * Create new short link
+   * Supports:
+   * - normal random code
+   * - custom vanity alias
+   * - expiration date
    */
   create(
     createLinkDto: CreateLinkDto,
     principalId: string,
   ) {
-    const code = this.generateShortCode();
+    let code =
+      createLinkDto.custom_code ||
+      this.generateShortCode();
+
+
+    // Check custom code uniqueness
+    if (createLinkDto.custom_code) {
+      const existing = this.links.find(
+        (link) =>
+          link.code === createLinkDto.custom_code,
+      );
+
+      if (existing) {
+        throw new ConflictException(
+          `Short code "${createLinkDto.custom_code}" is already in use.`,
+        );
+      }
+    }
+
 
     const link: Link = {
       id: this.links.length + 1,
       code,
-      long_url: createLinkDto.long_url,
-      principal_id: principalId,
-      created_at: new Date(),
-      expires_at: createLinkDto.expires_at
-        ? new Date(createLinkDto.expires_at)
-        : undefined,
+
+      long_url:
+        createLinkDto.long_url,
+
+      principal_id:
+        principalId,
+
+      created_at:
+        new Date(),
+
+      expires_at:
+        createLinkDto.expires_at
+          ? new Date(createLinkDto.expires_at)
+          : undefined,
+
+      tags:
+        createLinkDto.tags,
     };
+
 
     this.links.push(link);
 
     return link;
   }
 
+
+
   findAll(
     principalId: string,
     page: number,
     limit: number,
   ) {
-    const userLinks = this.links.filter(
-      (item) => item.principal_id === principalId,
-    );
+    const userLinks =
+      this.links.filter(
+        (item) =>
+          item.principal_id === principalId,
+      );
 
     return {
       page,
@@ -90,81 +131,118 @@ export class LinksService {
     };
   }
 
+
+
   findOne(
     id: number,
     principalId: string,
   ) {
-    const link = this.links.find(
-      (item) =>
-        item.id === id &&
-        item.principal_id === principalId,
-    );
+    const link =
+      this.links.find(
+        (item) =>
+          item.id === id &&
+          item.principal_id === principalId,
+      );
+
 
     if (!link) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException(
+        'Link not found',
+      );
     }
 
     return link;
   }
+
+
 
   findByCode(code: string) {
-    const link = this.links.find(
-      (item) => item.code === code,
-    );
+    const link =
+      this.links.find(
+        (item) =>
+          item.code === code,
+      );
+
 
     if (!link) {
-      throw new NotFoundException('Short URL not found');
+      throw new NotFoundException(
+        'Short URL not found',
+      );
     }
 
     return link;
   }
+
+
 
   async update(
     id: number,
     principalId: string,
     newUrl: string,
   ) {
-    const link = this.links.find(
-      (item) =>
-        item.id === id &&
-        item.principal_id === principalId,
-    );
+    const link =
+      this.links.find(
+        (item) =>
+          item.id === id &&
+          item.principal_id === principalId,
+      );
+
 
     if (!link) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException(
+        'Link not found',
+      );
     }
 
+
     link.long_url = newUrl;
+
 
     await this.cacheService.invalidateRedirectTarget(
       link.code,
     );
 
+
     return link;
   }
+
+
 
   async remove(
     id: number,
     principalId: string,
   ) {
-    const index = this.links.findIndex(
-      (item) =>
-        item.id === id &&
-        item.principal_id === principalId,
-    );
+    const index =
+      this.links.findIndex(
+        (item) =>
+          item.id === id &&
+          item.principal_id === principalId,
+      );
+
 
     if (index === -1) {
-      throw new NotFoundException('Link not found');
+      throw new NotFoundException(
+        'Link not found',
+      );
     }
 
-    const deletedLink = this.links[index];
 
-    this.links.splice(index, 1);
+    const deletedLink =
+      this.links[index];
+
+
+    this.links.splice(
+      index,
+      1,
+    );
+
 
     await this.cacheService.invalidateRedirectTarget(
       deletedLink.code,
     );
   }
+
+
 
   async recordClick(
     code: string,
@@ -173,41 +251,63 @@ export class LinksService {
       ip?: string;
     },
   ): Promise<void> {
-    const link = this.links.find(
-      (l) => l.code === code,
-    );
+
+    const link =
+      this.links.find(
+        (l) =>
+          l.code === code,
+      );
+
 
     if (!link) {
       return;
     }
 
+
     link.clicks_count =
       (link.clicks_count || 0) + 1;
 
-    link.last_accessed_at = new Date();
+
+    link.last_accessed_at =
+      new Date();
+
+
 
     if (!link.logs) {
       link.logs = [];
     }
 
+
     link.logs.unshift({
-      timestamp: link.last_accessed_at,
-      userAgent: metadata.userAgent,
-      ip: metadata.ip,
+      timestamp:
+        link.last_accessed_at,
+
+      userAgent:
+        metadata.userAgent,
+
+      ip:
+        metadata.ip,
     });
+
 
     if (link.logs.length > 50) {
       link.logs.pop();
     }
   }
 
+
+
   async getLinkStats(
     id: number,
     principalId: string,
   ): Promise<Link> {
-    const link = this.links.find(
-      (l) => l.id === id,
-    );
+
+    const link =
+      this.links.find(
+        (l) =>
+          l.id === id,
+      );
+
 
     if (!link) {
       throw new NotFoundException(
@@ -215,11 +315,13 @@ export class LinksService {
       );
     }
 
+
     if (link.principal_id !== principalId) {
       throw new UnauthorizedException(
         'Access denied to link statistics.',
       );
     }
+
 
     return link;
   }
