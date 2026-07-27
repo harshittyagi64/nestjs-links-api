@@ -156,4 +156,29 @@ export class LinksController {
       principalId,
     );
   }
+  @Get(':id/stats')
+@ApiOperation({ summary: 'Get click analytics and stats for a link' })
+@ApiResponse({
+  status: 200,
+  description: 'Analytics data retrieved successfully.',
+})
+@ApiResponse({
+  status: 401,
+  description: 'Unauthorized.',
+})
+@ApiResponse({
+  status: 404,
+  description: 'Link not found.',
+})
+getStats(
+  @Param('id') id: string,
+  @Req() req: Request,
+) {
+  const principalId = req['principal_id'] as string;
+
+  return this.linksService.getLinkStats(
+    +id,
+    principalId,
+  );
+}
 }

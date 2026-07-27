@@ -3,12 +3,14 @@ import {
   Get,
   Param,
   Res,
+  Req,
   NotFoundException,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import type { Response } from 'express';
+
+import type { Request, Response } from 'express';
 import { LinksService } from '../links/links.service';
 import { CacheService } from '../cache/cache.service';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('r')
 export class RedirectController {
@@ -20,8 +22,10 @@ export class RedirectController {
   @Get(':code')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async redirect(
-    @Param('code') code: string,
-    @Res() res: Response,
+  @Param('code') code: string,
+  @Req() req: Request,
+  @Res() res: Response,
+
   ) {
     // 1. Check cache first
     const cachedUrl = await this.cacheService.getRedirectTarget(code);
@@ -39,12 +43,22 @@ export class RedirectController {
 
     // 3. Save in cache for 1 hour
     await this.cacheService.setRedirectTarget(
-      code,
-      link.long_url,
-      3600,
-    );
+  code,
+  link.long_url,
+  3600,
+);
 
-    // 4. Redirect
-    return res.redirect(302, link.long_url);
+const userAgent = req.headers['user-agent'];
+const ip =
+  (req.headers['x-forwarded-for'] as string) ||
+  req.ip ||
+  req.socket.remoteAddress;
+
+this.linksService
+  .recordClick(code, { userAgent, ip })
+  .catch(() => {});
+
+return res.redirect(302, link.long_url);
   }
-}
+
+} 

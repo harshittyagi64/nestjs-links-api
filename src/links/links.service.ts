@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
+export interface ClickLog {
+  timestamp: Date;
+  userAgent?: string;
+  ip?: string;
+}
 
 export interface Link {
   id: number;
@@ -11,7 +20,12 @@ export interface Link {
   created_at: Date;
   expires_at?: Date | null;
   tags?: string[];
+
+  clicks_count?: number;
+  last_accessed_at?: Date;
+  logs?: ClickLog[];
 }
+
 
 @Injectable()
 export class LinksService {
@@ -118,4 +132,50 @@ export class LinksService {
       deletedLink.code,
     );
   }
+    async recordClick(
+  code: string,
+  metadata: { userAgent?: string; ip?: string },
+): Promise<void> {
+  const link = this.links.find((l) => l.code === code);
+
+  if (!link) {
+    return;
+  }
+
+  link.clicks_count = (link.clicks_count || 0) + 1;
+  link.last_accessed_at = new Date();
+
+  if (!link.logs) {
+    link.logs = [];
+  }
+
+  link.logs.unshift({
+    timestamp: link.last_accessed_at,
+    userAgent: metadata.userAgent,
+    ip: metadata.ip,
+  });
+
+  if (link.logs.length > 50) {
+    link.logs.pop();
+  }
 }
+
+async getLinkStats(
+  id: number,
+  principalId: string,
+): Promise<Link> {
+  const link = this.links.find((l) => l.id === id);
+
+  if (!link) {
+    throw new NotFoundException('Link not found');
+  }
+
+  if (link.principal_id !== principalId) {
+    throw new UnauthorizedException(
+      'Access denied to link statistics.',
+    );
+  }
+
+  return link;
+}
+  }
