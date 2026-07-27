@@ -32,7 +32,7 @@ export class LinksController {
 
   @Post()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Create a short URL' })
+  @ApiOperation({ summary: 'Create a short URL with optional expiration' })
   @ApiResponse({
     status: 201,
     description: 'Short URL created successfully.',

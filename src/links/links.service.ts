@@ -3,9 +3,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+
 import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
+
 export interface ClickLog {
   timestamp: Date;
   userAgent?: string;
@@ -26,18 +28,34 @@ export interface Link {
   logs?: ClickLog[];
 }
 
-
 @Injectable()
 export class LinksService {
   private links: Link[] = [];
 
-  constructor(private readonly cacheService: CacheService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+  ) {}
 
   private generateShortCode(): string {
     return randomBytes(4).toString('hex');
   }
 
-  create(createLinkDto: CreateLinkDto, principalId: string) {
+  /**
+   * Check if link is expired
+   */
+  isExpired(link: Link): boolean {
+    if (!link.expires_at) return false;
+
+    return new Date() > new Date(link.expires_at);
+  }
+
+  /**
+   * Create new short link
+   */
+  create(
+    createLinkDto: CreateLinkDto,
+    principalId: string,
+  ) {
     const code = this.generateShortCode();
 
     const link: Link = {
@@ -46,6 +64,9 @@ export class LinksService {
       long_url: createLinkDto.long_url,
       principal_id: principalId,
       created_at: new Date(),
+      expires_at: createLinkDto.expires_at
+        ? new Date(createLinkDto.expires_at)
+        : undefined,
     };
 
     this.links.push(link);
@@ -53,7 +74,11 @@ export class LinksService {
     return link;
   }
 
-  findAll(principalId: string, page: number, limit: number) {
+  findAll(
+    principalId: string,
+    page: number,
+    limit: number,
+  ) {
     const userLinks = this.links.filter(
       (item) => item.principal_id === principalId,
     );
@@ -65,7 +90,10 @@ export class LinksService {
     };
   }
 
-  findOne(id: number, principalId: string) {
+  findOne(
+    id: number,
+    principalId: string,
+  ) {
     const link = this.links.find(
       (item) =>
         item.id === id &&
@@ -108,12 +136,17 @@ export class LinksService {
 
     link.long_url = newUrl;
 
-    await this.cacheService.invalidateRedirectTarget(link.code);
+    await this.cacheService.invalidateRedirectTarget(
+      link.code,
+    );
 
     return link;
   }
 
-  async remove(id: number, principalId: string) {
+  async remove(
+    id: number,
+    principalId: string,
+  ) {
     const index = this.links.findIndex(
       (item) =>
         item.id === id &&
@@ -132,50 +165,62 @@ export class LinksService {
       deletedLink.code,
     );
   }
-    async recordClick(
-  code: string,
-  metadata: { userAgent?: string; ip?: string },
-): Promise<void> {
-  const link = this.links.find((l) => l.code === code);
 
-  if (!link) {
-    return;
-  }
-
-  link.clicks_count = (link.clicks_count || 0) + 1;
-  link.last_accessed_at = new Date();
-
-  if (!link.logs) {
-    link.logs = [];
-  }
-
-  link.logs.unshift({
-    timestamp: link.last_accessed_at,
-    userAgent: metadata.userAgent,
-    ip: metadata.ip,
-  });
-
-  if (link.logs.length > 50) {
-    link.logs.pop();
-  }
-}
-
-async getLinkStats(
-  id: number,
-  principalId: string,
-): Promise<Link> {
-  const link = this.links.find((l) => l.id === id);
-
-  if (!link) {
-    throw new NotFoundException('Link not found');
-  }
-
-  if (link.principal_id !== principalId) {
-    throw new UnauthorizedException(
-      'Access denied to link statistics.',
+  async recordClick(
+    code: string,
+    metadata: {
+      userAgent?: string;
+      ip?: string;
+    },
+  ): Promise<void> {
+    const link = this.links.find(
+      (l) => l.code === code,
     );
+
+    if (!link) {
+      return;
+    }
+
+    link.clicks_count =
+      (link.clicks_count || 0) + 1;
+
+    link.last_accessed_at = new Date();
+
+    if (!link.logs) {
+      link.logs = [];
+    }
+
+    link.logs.unshift({
+      timestamp: link.last_accessed_at,
+      userAgent: metadata.userAgent,
+      ip: metadata.ip,
+    });
+
+    if (link.logs.length > 50) {
+      link.logs.pop();
+    }
   }
 
-  return link;
-}
+  async getLinkStats(
+    id: number,
+    principalId: string,
+  ): Promise<Link> {
+    const link = this.links.find(
+      (l) => l.id === id,
+    );
+
+    if (!link) {
+      throw new NotFoundException(
+        'Link not found',
+      );
+    }
+
+    if (link.principal_id !== principalId) {
+      throw new UnauthorizedException(
+        'Access denied to link statistics.',
+      );
+    }
+
+    return link;
   }
+}

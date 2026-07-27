@@ -5,6 +5,7 @@ import {
   Res,
   Req,
   NotFoundException,
+  GoneException,
 } from '@nestjs/common';
 
 import type { Request, Response } from 'express';
@@ -19,46 +20,59 @@ export class RedirectController {
     private readonly cacheService: CacheService,
   ) {}
 
-  @Get(':code')
+    // 1. Check cache first
+      @Get(':code')
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   async redirect(
-  @Param('code') code: string,
-  @Req() req: Request,
-  @Res() res: Response,
-
+    @Param('code') code: string,
+    @Req() req: Request,
+    @Res() res: Response,
   ) {
-    // 1. Check cache first
+    // 1. Fetch link first
+    const link = this.linksService.findByCode(code);
+
+    // 2. Check expiration
+    if (this.linksService.isExpired(link)) {
+      await this.cacheService.invalidateRedirectTarget(code);
+      throw new GoneException('Short link has expired');
+    }
+
+    // 3. Check Redis cache
     const cachedUrl = await this.cacheService.getRedirectTarget(code);
 
     if (cachedUrl) {
+      this.linksService
+        .recordClick(code, {
+          userAgent: req.headers['user-agent'],
+          ip:
+            (req.headers['x-forwarded-for'] as string) ||
+            req.ip ||
+            req.socket.remoteAddress,
+        })
+        .catch(() => {});
+
       return res.redirect(302, cachedUrl);
     }
 
-    // 2. Cache miss -> fetch from LinksService
-    const link = this.linksService.findByCode(code);
-
-    if (!link) {
-      throw new NotFoundException('Link not found');
-    }
-
-    // 3. Save in cache for 1 hour
+    // 4. Cache miss
     await this.cacheService.setRedirectTarget(
-  code,
-  link.long_url,
-  3600,
-);
+      code,
+      link.long_url,
+      3600,
+    );
 
-const userAgent = req.headers['user-agent'];
-const ip =
-  (req.headers['x-forwarded-for'] as string) ||
-  req.ip ||
-  req.socket.remoteAddress;
+    // 5. Analytics
+    this.linksService
+      .recordClick(code, {
+        userAgent: req.headers['user-agent'],
+        ip:
+          (req.headers['x-forwarded-for'] as string) ||
+          req.ip ||
+          req.socket.remoteAddress,
+      })
+      .catch(() => {});
 
-this.linksService
-  .recordClick(code, { userAgent, ip })
-  .catch(() => {});
-
-return res.redirect(302, link.long_url);
+    return res.redirect(302, link.long_url);
   }
 
 } 

@@ -11,6 +11,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+
 export class CreateLinkDto {
   @ApiProperty({
     description: 'Original URL to shorten',
