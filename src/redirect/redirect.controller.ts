@@ -1,18 +1,20 @@
 import {
   Controller,
   Get,
+  Post,
   Param,
-  Res,
+  Body,
   Req,
+  Res,
   GoneException,
+  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
-
+import { VerifyPasswordDto } from './dto/verify-password.dto';
 import type { Request, Response } from 'express';
 
 import { LinksService } from '../links/links.service';
 import { CacheService } from '../cache/cache.service';
-import { Throttle } from '@nestjs/throttler';
-
 
 @Controller('r')
 export class RedirectController {
@@ -24,7 +26,6 @@ export class RedirectController {
 
 
   @Get(':code')
-  @Throttle({ default: { limit: 20, ttl: 60000 } })
   async redirect(
     @Param('code') code: string,
     @Req() req: Request,
@@ -48,9 +49,20 @@ export class RedirectController {
     }
 
 
+    // Password protection check
+    if (link.password) {
+
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'This link is password protected.',
+        is_protected: true,
+      });
+
+    }
+
+
     const userAgent =
       req.headers['user-agent'];
-
 
     const referrer =
       req.headers['referer'];
@@ -78,6 +90,7 @@ export class RedirectController {
 
 
     // Cache miss
+
     await this.cacheService.setRedirectTarget(
       code,
       link.long_url,
@@ -96,5 +109,53 @@ export class RedirectController {
       302,
       link.long_url,
     );
+
   }
+
+
+
+  @Post(':code/verify')
+  async verifyAndRedirect(
+    @Param('code') code: string,
+    @Body() dto: VerifyPasswordDto,
+  ) {
+
+
+    const link =
+      this.linksService.findByCode(code);
+
+
+
+    // Check password
+
+    const isValid =
+      await this.linksService.verifyPassword(
+        code,
+        dto.password,
+      );
+
+
+
+    if (!isValid) {
+
+      throw new UnauthorizedException(
+        'Invalid password for this link.',
+      );
+
+    }
+
+
+
+    await this.linksService.recordClick(
+      link.id,
+    );
+
+
+
+    return {
+      redirect_url: link.long_url,
+    };
+
+  }
+
 }

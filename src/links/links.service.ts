@@ -28,6 +28,7 @@ export interface Link {
   clicks_count?: number;
   last_accessed_at?: Date;
   logs?: ClickLog[];
+  password?: string;
 }
 
 @Injectable()
@@ -38,9 +39,23 @@ export class LinksService {
   constructor(
   private readonly cacheService: CacheService,
 ) {}
-
 private generateShortCode(): string {
   return randomBytes(4).toString('hex');
+}
+
+
+async verifyPassword(
+  code: string,
+  submittedPassword: string,
+): Promise<boolean> {
+
+  const link = this.findByCode(code);
+
+  if (!link.password) {
+    return false;
+  }
+
+  return link.password === submittedPassword;
 }
 
 
@@ -134,6 +149,7 @@ isExpired(link: Link): boolean {
 
 
     const link: Link = {
+      password: createLinkDto.password || undefined,
       id: this.links.length + 1,
       code,
 
