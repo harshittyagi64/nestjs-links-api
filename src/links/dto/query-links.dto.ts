@@ -33,4 +33,12 @@ export class QueryLinksDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+@ApiPropertyOptional({
+  description: 'Filter links by specific tag',
+  example: 'marketing',
+})
+@IsOptional()
+@IsString()
+tag?: string;
 }

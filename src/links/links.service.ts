@@ -101,9 +101,7 @@ export class LinksService {
         createLinkDto.expires_at
           ? new Date(createLinkDto.expires_at)
           : undefined,
-
-      tags:
-        createLinkDto.tags,
+          
     };
 
 
@@ -118,8 +116,8 @@ async findPaginated(
   page: number = 1,
   limit: number = 10,
   search?: string,
+  tag?: string,
 ) {
-
   let userLinks = this.links.filter(
     (link) =>
       link.principal_id === principalId,
@@ -133,6 +131,17 @@ async findPaginated(
       (link) =>
         link.code.toLowerCase().includes(query) ||
         link.long_url.toLowerCase().includes(query),
+    );
+  }
+
+
+  if (tag) {
+    const targetTag = tag.toLowerCase();
+
+    userLinks = userLinks.filter((link) =>
+      link.tags?.some(
+        (t) => t.toLowerCase() === targetTag,
+      ),
     );
   }
 
@@ -231,6 +240,9 @@ async findPaginated(
     link.expires_at = updateData.expires_at
       ? new Date(updateData.expires_at)
       : undefined;
+      if (updateData.tags !== undefined) {
+  link.tags = updateData.tags;
+}
   }
 
   await this.cacheService.invalidateRedirectTarget(
