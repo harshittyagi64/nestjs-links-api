@@ -1,29 +1,34 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsInt, Min, Max, IsString } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryLinksDto {
+
   @ApiPropertyOptional({
     description: 'Page number',
-    default: 1,
+    example: 1,
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(1)
-  page?: number = 1;
+  page: number = 1;
 
 
   @ApiPropertyOptional({
-    description: 'Items per page',
-    default: 10,
+    description: 'Number of records per page',
+    example: 10,
   })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
+  @IsNumber()
   @Min(1)
-  @Max(100)
-  limit?: number = 10;
+  limit: number = 10;
 
 
   @ApiPropertyOptional({
@@ -34,11 +39,23 @@ export class QueryLinksDto {
   @IsString()
   search?: string;
 
-@ApiPropertyOptional({
-  description: 'Filter links by specific tag',
-  example: 'marketing',
-})
-@IsOptional()
-@IsString()
-tag?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter links by tag',
+    example: 'marketing',
+  })
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+
+  // MODULE 19: DOMAIN FILTER
+  @ApiPropertyOptional({
+    description: 'Filter links by custom branded domain',
+    example: 'go.brand.io',
+  })
+  @IsOptional()
+  @IsString()
+  domain?: string;
+
 }

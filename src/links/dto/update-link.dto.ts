@@ -1,16 +1,18 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsOptional,
+  IsString,
   IsUrl,
   IsISO8601,
   IsArray,
-  IsString,
+  IsFQDN,
 } from 'class-validator';
 
 export class UpdateLinkDto {
+
   @ApiPropertyOptional({
-    description: 'Updated destination URL',
-    example: 'https://docs.nestjs.com',
+    description: 'Updated target URL',
+    example: 'https://nestjs.com/docs',
   })
   @IsOptional()
   @IsUrl()
@@ -27,11 +29,34 @@ export class UpdateLinkDto {
 
 
   @ApiPropertyOptional({
-    description: 'Updated tags list',
-    example: ['campaign-2026', 'marketing'],
+    description: 'Updated tags for organizing links',
+    example: ['marketing', 'launch'],
   })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+
+  @ApiPropertyOptional({
+    description: 'Updated password requirement',
+    example: 'Secret123!',
+  })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+
+  // MODULE 19: Custom Domain Support
+  @ApiPropertyOptional({
+    description: 'Updated custom branded domain name',
+    example: 'link.brand.io',
+  })
+  @IsOptional()
+  @IsString()
+  @IsFQDN({}, {
+    message: 'Domain must be a valid domain name',
+  })
+  domain?: string;
+
 }

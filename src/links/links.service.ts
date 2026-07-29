@@ -24,6 +24,7 @@ export interface Link {
   created_at: Date;
   expires_at?: Date | null;
   tags?: string[];
+  domain?: string;
 
   clicks_count?: number;
   last_accessed_at?: Date;
@@ -124,56 +125,78 @@ isExpired(link: Link): boolean {
    * - custom vanity alias
    * - expiration date
    */
-  create(
-    createLinkDto: CreateLinkDto,
-    principalId: string,
-  ) {
-    let code =
-      createLinkDto.custom_code ||
-      this.generateShortCode();
+  async create(
+  createLinkDto: CreateLinkDto,
+  principalId: string,
+) {
 
+  // YAHAN ADD KARNA HAI 👇
 
-    // Check custom code uniqueness
-    if (createLinkDto.custom_code) {
-      const existing = this.links.find(
-        (link) =>
-          link.code === createLinkDto.custom_code,
+  if (createLinkDto.custom_code) {
+
+    const exists = this.links.find(
+      (link) =>
+        link.code === createLinkDto.custom_code &&
+        link.domain === (
+          createLinkDto.domain
+            ? createLinkDto.domain.toLowerCase()
+            : undefined
+        ),
+    );
+
+    if (exists) {
+      throw new ConflictException(
+        'Short code already exists for this domain',
       );
-
-      if (existing) {
-        throw new ConflictException(
-          `Short code "${createLinkDto.custom_code}" is already in use.`,
-        );
-      }
     }
-
-
-    const link: Link = {
-      password: createLinkDto.password || undefined,
-      id: this.links.length + 1,
-      code,
-
-      long_url:
-        createLinkDto.long_url,
-
-      principal_id:
-        principalId,
-
-      created_at:
-        new Date(),
-
-      expires_at:
-        createLinkDto.expires_at
-          ? new Date(createLinkDto.expires_at)
-          : undefined,
-          
-    };
-
-
-    this.links.push(link);
-
-    return link;
   }
+
+
+  // Iske baad tera existing code chalega
+
+  const code =
+    createLinkDto.custom_code ||
+    this.generateShortCode();
+
+
+  const link: Link = {
+
+    password:
+      createLinkDto.password || undefined,
+
+    id:
+      this.links.length + 1,
+
+    code,
+
+    long_url:
+      createLinkDto.long_url,
+
+    principal_id:
+      principalId,
+
+    created_at:
+      new Date(),
+
+    expires_at:
+      createLinkDto.expires_at
+        ? new Date(createLinkDto.expires_at)
+        : undefined,
+
+    tags:
+      createLinkDto.tags || [],
+
+    domain:
+      createLinkDto.domain
+        ? createLinkDto.domain.toLowerCase()
+        : undefined,
+  };
+
+
+  this.links.push(link);
+
+  return link;
+}
 
 
 async findPaginated(
@@ -515,12 +538,14 @@ async findPaginated(
   }
   async createBulk(
   principalId: string,
-  dtos: CreateLinkDto[],
+  links: CreateLinkDto[],
 ): Promise<Link[]> {
+
   const createdLinks: Link[] = [];
 
-  for (const dto of dtos) {
-    const link = this.create(
+  for (const dto of links) {
+
+    const link = await this.create(
       dto,
       principalId,
     );
@@ -532,33 +557,35 @@ async findPaginated(
 }
 
 
+// ADD THIS AFTER createBulk
 
-  async getLinkStats(
-    id: number,
-    principalId: string,
-  ): Promise<Link> {
+async getLinkStats(
+  id: number,
+  principalId: string,
+) {
 
-    const link =
-      this.links.find(
-        (l) =>
-          l.id === id,
-      );
-
-
-    if (!link) {
-      throw new NotFoundException(
-        'Link not found',
-      );
-    }
+  const link = this.links.find(
+    (l) =>
+      l.id === id &&
+      l.principal_id === principalId,
+  );
 
 
-    if (link.principal_id !== principalId) {
-      throw new UnauthorizedException(
-        'Access denied to link statistics.',
-      );
-    }
-
-
-    return link;
+  if (!link) {
+    throw new NotFoundException(
+      'Link not found',
+    );
   }
+
+
+  return {
+    id: link.id,
+    code: link.code,
+    long_url: link.long_url,
+    clicks_count: link.clicks_count || 0,
+    last_accessed_at: link.last_accessed_at,
+    logs: link.logs || [],
+  };
 }
+}
+

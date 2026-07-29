@@ -7,6 +7,7 @@ import {
   IsString,
   Matches,
   IsArray,
+  IsFQDN,
   MinLength,
 } from 'class-validator';
 
@@ -31,8 +32,8 @@ export class CreateLinkDto {
 
 
   @ApiPropertyOptional({
-    description: 'Optional tags for organizing links into campaigns',
-    example: ['marketing', 'launch-2026'],
+    description: 'Optional tags for organizing links',
+    example: ['marketing', 'launch'],
   })
   @IsOptional()
   @IsArray()
@@ -62,4 +63,16 @@ export class CreateLinkDto {
   @MinLength(4)
   password?: string;
 
+
+  // MODULE 19 DOMAIN SUPPORT
+  @ApiPropertyOptional({
+    description: 'Optional custom branded domain',
+    example: 'go.brand.io',
+  })
+  @IsOptional()
+  @IsString()
+  @IsFQDN({}, {
+    message: 'Domain must be a valid domain name',
+  })
+  domain?: string;
 }
