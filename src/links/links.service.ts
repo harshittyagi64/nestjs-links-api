@@ -1,5 +1,9 @@
 import { UpdateLinkDto } from './dto/update-link.dto';
 import {
+  ClickLog,
+  LinkAnalytics,
+} from './interfaces/click-log.interface';
+import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -10,11 +14,6 @@ import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
 
-export interface ClickLog {
-  timestamp: Date;
-  userAgent?: string;
-  ip?: string;
-}
 
 export interface Link {
   id: number;
@@ -33,6 +32,7 @@ export interface Link {
 @Injectable()
 export class LinksService {
   private links: Link[] = [];
+  private clickLogs: ClickLog[] = [];
 
   constructor(
     private readonly cacheService: CacheService,
@@ -289,18 +289,58 @@ async findPaginated(
 
 
 
+    private detectDeviceType(
+    ua?: string,
+  ): 'desktop' | 'mobile' | 'bot' | 'other' {
+
+    if (!ua) return 'other';
+
+    const lower = ua.toLowerCase();
+
+
+    if (
+      lower.includes('bot') ||
+      lower.includes('crawler') ||
+      lower.includes('spider')
+    ) {
+      return 'bot';
+    }
+
+
+    if (
+      lower.includes('mobile') ||
+      lower.includes('android') ||
+      lower.includes('iphone')
+    ) {
+      return 'mobile';
+    }
+
+
+    if (
+      lower.includes('mozilla') ||
+      lower.includes('chrome') ||
+      lower.includes('safari') ||
+      lower.includes('windows') ||
+      lower.includes('macintosh')
+    ) {
+      return 'desktop';
+    }
+
+
+    return 'other';
+  }
+
+
+
   async recordClick(
-    code: string,
-    metadata: {
-      userAgent?: string;
-      ip?: string;
-    },
+    linkId: number,
+    userAgent?: string,
+    referrer?: string,
   ): Promise<void> {
 
     const link =
       this.links.find(
-        (l) =>
-          l.code === code,
+        (l) => l.id === linkId,
       );
 
 
@@ -313,31 +353,100 @@ async findPaginated(
       (link.clicks_count || 0) + 1;
 
 
-    link.last_accessed_at =
-      new Date();
+    const log: ClickLog = {
 
+      link_id: linkId,
 
-
-    if (!link.logs) {
-      link.logs = [];
-    }
-
-
-    link.logs.unshift({
       timestamp:
-        link.last_accessed_at,
+        new Date(),
 
-      userAgent:
-        metadata.userAgent,
+      user_agent:
+        userAgent,
 
-      ip:
-        metadata.ip,
-    });
+      referrer:
+        referrer || 'direct',
+
+      device_type:
+        this.detectDeviceType(userAgent),
+    };
 
 
-    if (link.logs.length > 50) {
-      link.logs.pop();
+    this.clickLogs.push(log);
+  }
+
+
+
+  async getAnalytics(
+    linkId: number,
+  ): Promise<LinkAnalytics | null> {
+
+
+    const link =
+      this.links.find(
+        (l) => l.id === linkId,
+      );
+
+
+    if (!link) {
+      return null;
     }
+
+
+    const logs =
+      this.clickLogs.filter(
+        (l) =>
+          l.link_id === linkId,
+      );
+
+
+    const byDevice = {
+      desktop: 0,
+      mobile: 0,
+      bot: 0,
+      other: 0,
+    };
+
+
+    const topReferrers:
+      Record<string, number> = {};
+
+
+    for (const log of logs) {
+
+      byDevice[log.device_type]++;
+
+
+      const ref =
+        log.referrer || 'direct';
+
+
+      topReferrers[ref] =
+        (topReferrers[ref] || 0) + 1;
+    }
+
+
+    return {
+
+      link_id: link.id,
+
+      code: link.code,
+
+      total_clicks:
+        link.clicks_count || 0,
+
+
+      by_device: byDevice,
+
+
+      top_referrers:
+        topReferrers,
+
+
+      recent_clicks:
+        [...logs]
+        .reverse()
+        .slice(0,10),
+    };
   }
   async createBulk(
   principalId: string,

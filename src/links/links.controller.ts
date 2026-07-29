@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
@@ -169,7 +170,6 @@ update(
     body,
   );
 }
-    
   
 
   @Delete(':id')
@@ -218,4 +218,43 @@ getStats(
     principalId,
   );
 }
+    @Get(':id/analytics')
+  @ApiOperation({
+    summary: 'Get detailed click metrics and device/referrer analytics',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Analytics retrieved successfully.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Link not found.',
+  })
+  async getAnalytics(
+    @Req() req: Request,
+    @Param('id') id: string,
+  ) {
+
+    const principalId =
+      req['principal_id'] as string;
+
+
+    const link =
+      this.linksService.findOne(
+        +id,
+        principalId,
+      );
+
+
+    if (!link) {
+      throw new NotFoundException(
+        'Link not found',
+      );
+    }
+
+
+    return this.linksService.getAnalytics(
+      +id,
+    );
+  }
 }
