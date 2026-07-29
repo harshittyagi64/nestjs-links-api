@@ -1,44 +1,32 @@
-import { Transform } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  ArrayMaxSize,
-  IsArray,
-  IsDateString,
+  IsUrl,
   IsNotEmpty,
   IsOptional,
+  IsISO8601,
   IsString,
   Matches,
-  MaxLength,
 } from 'class-validator';
-
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLinkDto {
   @ApiProperty({
-    description: 'Original URL to shorten',
+    description: 'The target original long URL to shorten',
     example: 'https://nestjs.com',
   })
+  @IsUrl()
   @IsNotEmpty()
-  @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim() : value,
-  )
-  @Matches(/^https?:\/\//i, {
-    message: 'long_url must start with http:// or https://',
-  })
   long_url: string;
 
-
   @ApiPropertyOptional({
-    description: 'Optional expiration timestamp in ISO 8601 format',
+    description: 'Optional expiration timestamp',
     example: '2026-12-31T23:59:59.000Z',
   })
   @IsOptional()
-  @IsDateString()
+  @IsISO8601()
   expires_at?: string;
 
-
   @ApiPropertyOptional({
-    description: 'Optional custom short code / vanity alias',
+    description: 'Optional custom short code',
     example: 'my-promo',
   })
   @IsOptional()
@@ -49,16 +37,10 @@ export class CreateLinkDto {
   })
   custom_code?: string;
 
-
   @ApiPropertyOptional({
     description: 'Optional tags',
-    example: ['nestjs', 'backend'],
-    type: [String],
+    example: ['marketing', 'sale'],
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @ArrayMaxSize(5)
-  @MaxLength(20, { each: true })
   tags?: string[];
 }

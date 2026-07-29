@@ -1,3 +1,4 @@
+import { UpdateLinkDto } from './dto/update-link.dto';
 import {
   Injectable,
   NotFoundException,
@@ -176,36 +177,38 @@ export class LinksService {
 
 
   async update(
-    id: number,
-    principalId: string,
-    newUrl: string,
-  ) {
-    const link =
-      this.links.find(
-        (item) =>
-          item.id === id &&
-          item.principal_id === principalId,
-      );
+  id: number,
+  principalId: string,
+  updateData: UpdateLinkDto,
+) {
+  const link = this.links.find(
+    (item) =>
+      item.id === id &&
+      item.principal_id === principalId,
+  );
 
-
-    if (!link) {
-      throw new NotFoundException(
-        'Link not found',
-      );
-    }
-
-
-    link.long_url = newUrl;
-
-
-    await this.cacheService.invalidateRedirectTarget(
-      link.code,
+  if (!link) {
+    throw new NotFoundException(
+      'Link not found',
     );
-
-
-    return link;
   }
 
+  if (updateData.long_url !== undefined) {
+    link.long_url = updateData.long_url;
+  }
+
+  if (updateData.expires_at !== undefined) {
+    link.expires_at = updateData.expires_at
+      ? new Date(updateData.expires_at)
+      : undefined;
+  }
+
+  await this.cacheService.invalidateRedirectTarget(
+    link.code,
+  );
+
+  return link;
+}
 
 
   async remove(

@@ -21,6 +21,7 @@ import {
 
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CreateLinkDto } from './dto/create-link.dto';
+import { UpdateLinkDto } from './dto/update-link.dto';
 import { LinksService } from './links.service';
 
 @ApiTags('Links')
@@ -107,33 +108,35 @@ export class LinksController {
     );
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update a link' })
-  @ApiResponse({
-    status: 200,
-    description: 'Link updated successfully.',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Link not found.',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'Too many requests.',
-  })
-  update(
-    @Param('id') id: string,
-    @Body() body: { long_url: string },
-    @Req() req: Request,
-  ) {
-    const principalId = req['principal_id'] as string;
+ @Patch(':id')
+@ApiOperation({ summary: 'Update a link' })
+@ApiResponse({
+  status: 200,
+  description: 'Link updated successfully.',
+})
+@ApiResponse({
+  status: 404,
+  description: 'Link not found.',
+})
+@ApiResponse({
+  status: 429,
+  description: 'Too many requests.',
+})
+update(
+  @Param('id') id: string,
+  @Body() body: UpdateLinkDto,
+  @Req() req: Request,
+) {
+  const principalId = req['principal_id'] as string;
 
-    return this.linksService.update(
-      +id,
-      principalId,
-      body.long_url,
-    );
-  }
+  return this.linksService.update(
+    +id,
+    principalId,
+    body,
+  );
+}
+    
+  
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a link' })
