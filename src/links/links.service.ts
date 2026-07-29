@@ -113,25 +113,55 @@ export class LinksService {
   }
 
 
+async findPaginated(
+  principalId: string,
+  page: number = 1,
+  limit: number = 10,
+  search?: string,
+) {
 
-  findAll(
-    principalId: string,
-    page: number,
-    limit: number,
-  ) {
-    const userLinks =
-      this.links.filter(
-        (item) =>
-          item.principal_id === principalId,
-      );
+  let userLinks = this.links.filter(
+    (link) =>
+      link.principal_id === principalId,
+  );
 
-    return {
-      page,
-      limit,
-      data: userLinks,
-    };
+
+  if (search) {
+    const query = search.toLowerCase();
+
+    userLinks = userLinks.filter(
+      (link) =>
+        link.code.toLowerCase().includes(query) ||
+        link.long_url.toLowerCase().includes(query),
+    );
   }
 
+
+  const total = userLinks.length;
+
+  const totalPages =
+    Math.ceil(total / limit) || 1;
+
+
+  const startIndex =
+    (page - 1) * limit;
+
+
+  const data =
+    userLinks.slice(
+      startIndex,
+      startIndex + limit,
+    );
+
+
+  return {
+    data,
+    total,
+    page,
+    limit,
+    totalPages,
+  };
+}
 
 
   findOne(

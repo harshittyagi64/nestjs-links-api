@@ -23,6 +23,7 @@ import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { UpdateLinkDto } from './dto/update-link.dto';
 import { CreateBulkLinksDto } from './dto/create-bulk-links.dto';
+import { QueryLinksDto } from './dto/query-links.dto';
 import { LinksService } from './links.service';
 
 @ApiTags('Links')
@@ -97,26 +98,26 @@ create(
   );
 }
 @Get()
-@ApiOperation({ summary: 'Get all links for current user' })
+@ApiOperation({ summary: 'Get paginated list of links with search filtering' })
 @ApiResponse({
   status: 200,
-  description: 'Links retrieved successfully.',
+  description: 'Paginated links retrieved successfully.',
 })
 @ApiResponse({
   status: 401,
-  description: 'Invalid API key.',
+  description: 'Unauthorized.',
 })
 findAll(
   @Req() req: Request,
-  @Query('page') page = 1,
-  @Query('limit') limit = 10,
+  @Query() queryDto: QueryLinksDto,
 ) {
   const principalId = req['principal_id'] as string;
 
-  return this.linksService.findAll(
+  return this.linksService.findPaginated(
     principalId,
-    +page,
-    +limit,
+    queryDto.page,
+    queryDto.limit,
+    queryDto.search,
   );
 }
   @Get(':id')
