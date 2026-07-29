@@ -13,6 +13,7 @@ import {
 import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
+import * as QRCode from 'qrcode';
 
 
 export interface Link {
@@ -35,23 +36,71 @@ export class LinksService {
   private clickLogs: ClickLog[] = [];
 
   constructor(
-    private readonly cacheService: CacheService,
-  ) {}
+  private readonly cacheService: CacheService,
+) {}
 
-  private generateShortCode(): string {
-    return randomBytes(4).toString('hex');
+private generateShortCode(): string {
+  return randomBytes(4).toString('hex');
+}
+
+
+async generateQrCode(
+  code: string,
+  baseUrl: string,
+  format: 'png' | 'svg' = 'png',
+  width: number = 300,
+  margin: number = 2,
+): Promise<{ data: Buffer | string; contentType: string }> {
+
+  const fullShortUrl = `${baseUrl}/r/${code}`;
+
+  if (format === 'svg') {
+
+    const svgString = await QRCode.toString(
+      fullShortUrl,
+      {
+        type: 'svg',
+        width,
+        margin,
+      },
+    );
+
+    return {
+      data: svgString,
+      contentType: 'image/svg+xml',
+    };
   }
 
 
-  /**
-   * Check link expiration
-   */
-  isExpired(link: Link): boolean {
-    if (!link.expires_at) return false;
+  const pngBuffer = await QRCode.toBuffer(
+    fullShortUrl,
+    {
+      width,
+      margin,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    },
+  );
 
-    return new Date() > new Date(link.expires_at);
-  }
 
+  return {
+    data: pngBuffer,
+    contentType: 'image/png',
+  };
+}
+
+
+/**
+ * Check link expiration
+ */
+isExpired(link: Link): boolean {
+  if (!link.expires_at) return false;
+
+  return new Date() > new Date(link.expires_at);
+}
+  
 
   /**
    * Create new short link

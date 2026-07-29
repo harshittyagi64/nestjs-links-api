@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   UseGuards,
+  Res,
   NotFoundException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -25,6 +26,8 @@ import { CreateLinkDto } from './dto/create-link.dto';
 import { UpdateLinkDto } from './dto/update-link.dto';
 import { CreateBulkLinksDto } from './dto/create-bulk-links.dto';
 import { QueryLinksDto } from './dto/query-links.dto';
+import type { Response } from 'express';
+import { QueryQrDto } from './dto/query-qr.dto';
 import { LinksService } from './links.service';
 
 @ApiTags('Links')
@@ -32,6 +35,43 @@ import { LinksService } from './links.service';
 @Controller('links')
 @UseGuards(ApiKeyGuard)
 export class LinksController {
+  @Get(':id/qr')
+@ApiOperation({ summary: 'Generate QR code for short link' })
+@ApiResponse({ status: 200, description: 'QR generated successfully' })
+async getQrCode(
+  @Req() req: Request,
+  @Param('id') id: string,
+  @Query() queryDto: QueryQrDto,
+  @Res() res: Response,
+) {
+
+  const principalId = req['principal_id'];
+
+  const link = this.linksService.findOne(
+    +id,
+    principalId,
+  );
+
+  const protocol = req['protocol'] || 'http';
+  const host = req.headers['host'] || 'localhost:3000';
+
+  const result =
+    await this.linksService.generateQrCode(
+      link.code,
+      `${protocol}://${host}`,
+      queryDto.format,
+      queryDto.width,
+      queryDto.margin,
+    );
+
+
+  res.setHeader(
+    'Content-Type',
+    result.contentType,
+  );
+
+  return res.send(result.data);
+}
   constructor(private readonly linksService: LinksService) {}
 
 // ---------------- BULK CREATE ----------------
