@@ -297,6 +297,23 @@ export class LinksService {
       link.logs.pop();
     }
   }
+  async createBulk(
+  principalId: string,
+  dtos: CreateLinkDto[],
+): Promise<Link[]> {
+  const createdLinks: Link[] = [];
+
+  for (const dto of dtos) {
+    const link = this.create(
+      dto,
+      principalId,
+    );
+
+    createdLinks.push(link);
+  }
+
+  return createdLinks;
+}
 
 
 

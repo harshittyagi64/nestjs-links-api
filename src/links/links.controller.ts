@@ -22,6 +22,7 @@ import {
 import { ApiKeyGuard } from '../auth/api-key.guard';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { UpdateLinkDto } from './dto/update-link.dto';
+import { CreateBulkLinksDto } from './dto/create-bulk-links.dto';
 import { LinksService } from './links.service';
 
 @ApiTags('Links')
@@ -31,61 +32,93 @@ import { LinksService } from './links.service';
 export class LinksController {
   constructor(private readonly linksService: LinksService) {}
 
-  @Post()
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiOperation({ summary: 'Create a short URL with optional expiration' })
-  @ApiResponse({
-    status: 201,
-    description: 'Short URL created successfully.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid request payload.',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid API key.',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'Too many requests.',
-  })
-  create(
-    @Body() createLinkDto: CreateLinkDto,
-    @Req() req: Request,
-  ) {
-    const principalId = req['principal_id'] as string;
+// ---------------- BULK CREATE ----------------
 
-    return this.linksService.create(
-      createLinkDto,
-      principalId,
-    );
-  }
+@Post('bulk')
+@ApiOperation({ summary: 'Create multiple short links in a single batch request' })
+@ApiResponse({
+  status: 201,
+  description: 'Bulk short links created successfully.',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Invalid payload or batch limit exceeded.',
+})
+@ApiResponse({
+  status: 401,
+  description: 'Unauthorized.',
+})
+@ApiResponse({
+  status: 409,
+  description: 'Custom short code conflict.',
+})
+createBulk(
+  @Body() dto: CreateBulkLinksDto,
+  @Req() req: Request,
+) {
+  const principalId = req['principal_id'] as string;
 
-  @Get()
-  @ApiOperation({ summary: 'Get all links for current user' })
-  @ApiResponse({
-    status: 200,
-    description: 'Links retrieved successfully.',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid API key.',
-  })
-  findAll(
-    @Req() req: Request,
-    @Query('page') page = 1,
-    @Query('limit') limit = 10,
-  ) {
-    const principalId = req['principal_id'] as string;
+  return this.linksService.createBulk(
+    principalId,
+    dto.links,
+  );
+}
 
-    return this.linksService.findAll(
-      principalId,
-      +page,
-      +limit,
-    );
-  }
+// ---------------- SINGLE CREATE ----------------
 
+@Post()
+@Throttle({ default: { limit: 5, ttl: 60000 } })
+@ApiOperation({ summary: 'Create a short URL with optional expiration' })
+@ApiResponse({
+  status: 201,
+  description: 'Short URL created successfully.',
+})
+@ApiResponse({
+  status: 400,
+  description: 'Invalid request payload.',
+})
+@ApiResponse({
+  status: 401,
+  description: 'Invalid API key.',
+})
+@ApiResponse({
+  status: 429,
+  description: 'Too many requests.',
+})
+create(
+  @Body() createLinkDto: CreateLinkDto,
+  @Req() req: Request,
+) {
+  const principalId = req['principal_id'] as string;
+
+  return this.linksService.create(
+    createLinkDto,
+    principalId,
+  );
+}
+@Get()
+@ApiOperation({ summary: 'Get all links for current user' })
+@ApiResponse({
+  status: 200,
+  description: 'Links retrieved successfully.',
+})
+@ApiResponse({
+  status: 401,
+  description: 'Invalid API key.',
+})
+findAll(
+  @Req() req: Request,
+  @Query('page') page = 1,
+  @Query('limit') limit = 10,
+) {
+  const principalId = req['principal_id'] as string;
+
+  return this.linksService.findAll(
+    principalId,
+    +page,
+    +limit,
+  );
+}
   @Get(':id')
   @ApiOperation({ summary: 'Get link by ID' })
   @ApiResponse({
