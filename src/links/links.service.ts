@@ -13,6 +13,7 @@ import {
 import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import * as QRCode from 'qrcode';
 
 
@@ -36,9 +37,9 @@ export interface Link {
 export class LinksService {
   private links: Link[] = [];
   private clickLogs: ClickLog[] = [];
-
-  constructor(
+constructor(
   private readonly cacheService: CacheService,
+  private readonly webhooksService: WebhooksService,
 ) {}
 private generateShortCode(): string {
   return randomBytes(4).toString('hex');
@@ -194,6 +195,11 @@ isExpired(link: Link): boolean {
 
 
   this.links.push(link);
+  await this.webhooksService.dispatch(
+  principalId,
+  'link.created',
+  link,
+);
 
   return link;
 }
@@ -460,6 +466,16 @@ async findPaginated(
 
 
     this.clickLogs.push(log);
+    await this.webhooksService.dispatch(
+  link.principal_id,
+  'link.clicked',
+  {
+    link_id: link.id,
+    code: link.code,
+    clicks_count: link.clicks_count,
+    device_type: log.device_type,
+  },
+);
   }
 
 

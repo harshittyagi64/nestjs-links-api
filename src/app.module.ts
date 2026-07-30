@@ -18,19 +18,21 @@ import { RedirectController } from './redirect/redirect.controller';
 
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 @Module({
   imports: [
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 10,
-      },
-    ]),
-    LinksModule,
-    CacheModule,
-  ],
+  ThrottlerModule.forRoot([
+    {
+      ttl: 60000,
+      limit: 10,
+    },
+  ]),
+  LinksModule,
+  CacheModule,
+  WebhooksModule,
+],
   controllers: [
     AppController,
     RedirectController,
