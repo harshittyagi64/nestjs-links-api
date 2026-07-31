@@ -19,6 +19,8 @@ import { RedirectController } from './redirect/redirect.controller';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { LinkEntity } from './links/entities/link.entity';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 @Module({
@@ -29,6 +31,16 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
       limit: 10,
     },
   ]),
+  TypeOrmModule.forRoot({
+  type: 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  port: parseInt(process.env.DB_PORT || '5432', 10),
+  username: process.env.DB_USERNAME || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgrespassword',
+  database: process.env.DB_NAME || 'links_db',
+  entities: [LinkEntity],
+  synchronize: process.env.NODE_ENV !== 'production',
+}),
   LinksModule,
   CacheModule,
   WebhooksModule,
