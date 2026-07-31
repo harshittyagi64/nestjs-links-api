@@ -21,6 +21,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LinkEntity } from './links/entities/link.entity';
+import { WebhookEntity } from './webhooks/entities/webhook.entity';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 
 @Module({
@@ -38,7 +39,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgrespassword',
   database: process.env.DB_NAME || 'links_db',
-  entities: [LinkEntity],
+  entities: [LinkEntity, WebhookEntity],
   synchronize: process.env.NODE_ENV !== 'production',
 }),
   LinksModule,
