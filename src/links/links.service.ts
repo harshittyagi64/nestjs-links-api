@@ -68,7 +68,17 @@ async verifyPassword(
 
   return link.password === submittedPassword;
 }
+async findByCode(code: string): Promise<LinkEntity> {
+  const link = await this.linkRepository.findOne({
+    where: { code },
+  });
 
+  if (!link) {
+    throw new NotFoundException('Short URL not found');
+  }
+
+  return link;
+}
 
 async generateQrCode(
   code: string,
@@ -138,21 +148,19 @@ isExpired(link: Link): boolean {
   async create(
   createLinkDto: CreateLinkDto,
   principalId: string,
-) {
+): Promise<LinkEntity> {
 
-  // YAHAN ADD KARNA HAI 👇
+  const normalizedDomain = createLinkDto.domain
+    ? createLinkDto.domain.toLowerCase()
+    : undefined;
 
   if (createLinkDto.custom_code) {
-
-    const exists = this.links.find(
-      (link) =>
-        link.code === createLinkDto.custom_code &&
-        link.domain === (
-          createLinkDto.domain
-            ? createLinkDto.domain.toLowerCase()
-            : undefined
-        ),
-    );
+    const exists = await this.linkRepository.findOne({
+      where: {
+        code: createLinkDto.custom_code,
+        domain: normalizedDomain ?? IsNull(),
+      },
+    });
 
     if (exists) {
       throw new ConflictException(
@@ -161,59 +169,34 @@ isExpired(link: Link): boolean {
     }
   }
 
-
-  // Iske baad tera existing code chalega
-
   const code =
     createLinkDto.custom_code ||
     this.generateShortCode();
 
-
-  const link: Link = {
-
-    password:
-      createLinkDto.password || undefined,
-
-    id:
-      this.links.length + 1,
-
+  const newLink = this.linkRepository.create({
     code,
+    long_url: createLinkDto.long_url,
+    principal_id: principalId,
+    expires_at: createLinkDto.expires_at
+      ? new Date(createLinkDto.expires_at)
+      : undefined,
+    tags: createLinkDto.tags || [],
+    password: createLinkDto.password || undefined,
+    domain: normalizedDomain,
+    clicks_count: 0,
+  });
 
-    long_url:
-      createLinkDto.long_url,
+  const savedLink =
+    await this.linkRepository.save(newLink);
 
-    principal_id:
-      principalId,
-
-    created_at:
-      new Date(),
-
-    expires_at:
-      createLinkDto.expires_at
-        ? new Date(createLinkDto.expires_at)
-        : undefined,
-
-    tags:
-      createLinkDto.tags || [],
-
-    domain:
-      createLinkDto.domain
-        ? createLinkDto.domain.toLowerCase()
-        : undefined,
-  };
-
-
-  this.links.push(link);
   await this.webhooksService.dispatch(
-  principalId,
-  'link.created',
-  link,
-);
+    principalId,
+    'link.created',
+    savedLink,
+  );
 
-  return link;
+  return savedLink;
 }
-
-
 async findPaginated(
   principalId: string,
   page: number = 1,
@@ -221,93 +204,66 @@ async findPaginated(
   search?: string,
   tag?: string,
 ) {
-  let userLinks = this.links.filter(
-    (link) =>
-      link.principal_id === principalId,
-  );
-
+  const query =
+    this.linkRepository
+      .createQueryBuilder('link')
+      .where(
+        'link.principal_id = :principalId',
+        { principalId },
+      );
 
   if (search) {
-    const query = search.toLowerCase();
-
-    userLinks = userLinks.filter(
-      (link) =>
-        link.code.toLowerCase().includes(query) ||
-        link.long_url.toLowerCase().includes(query),
+    query.andWhere(
+      '(LOWER(link.code) LIKE :search OR LOWER(link.long_url) LIKE :search)',
+      {
+        search: `%${search.toLowerCase()}%`,
+      },
     );
   }
-
 
   if (tag) {
-    const targetTag = tag.toLowerCase();
-
-    userLinks = userLinks.filter((link) =>
-      link.tags?.some(
-        (t) => t.toLowerCase() === targetTag,
-      ),
+    query.andWhere(
+      ':tag = ANY(link.tags)',
+      { tag },
     );
   }
 
-
-  const total = userLinks.length;
-
-  const totalPages =
-    Math.ceil(total / limit) || 1;
-
-
-  const startIndex =
-    (page - 1) * limit;
-
-
-  const data =
-    userLinks.slice(
-      startIndex,
-      startIndex + limit,
-    );
-
+  const [data, total] =
+    await query
+      .orderBy('link.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
   return {
     data,
     total,
     page,
     limit,
-    totalPages,
+    totalPages: Math.ceil(total / limit) || 1,
   };
 }
+  async findOne(
+  id: number,
+  principalId: string,
+): Promise<LinkEntity> {
 
-
-  findOne(
-    id: number,
-    principalId: string,
-  ) {
-    const link =
-      this.links.find(
-        (item) =>
-          item.id === id &&
-          item.principal_id === principalId,
-      );
-
-
-    if (!link) {
-      throw new NotFoundException(
-        'Link not found',
-      );
-    }
-
-    return link;
-  }
-async findByCode(code: string) {
-  const link = await this.linkRepository.findOne({
-    where: { code },
-  });
+  const link =
+    await this.linkRepository.findOne({
+      where: {
+        id,
+        principal_id: principalId,
+      },
+    });
 
   if (!link) {
-    throw new NotFoundException('Short URL not found');
+    throw new NotFoundException(
+      'Link not found',
+    );
   }
 
   return link;
 }
-  
 
   async update(
   id: number,

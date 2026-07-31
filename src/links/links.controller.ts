@@ -38,7 +38,7 @@ export class LinksController {
   @Get(':id/qr')
 @ApiOperation({ summary: 'Generate QR code for short link' })
 @ApiResponse({ status: 200, description: 'QR generated successfully' })
-async getQrCode(
+async generateQrCode(
   @Req() req: Request,
   @Param('id') id: string,
   @Query() queryDto: QueryQrDto,
@@ -47,7 +47,7 @@ async getQrCode(
 
   const principalId = req['principal_id'];
 
-  const link = this.linksService.findOne(
+  const link = await this.linksService.findOne(
     +id,
     principalId,
   );
@@ -280,10 +280,10 @@ getStats(
 
 
     const link =
-      this.linksService.findOne(
-        +id,
-        principalId,
-      );
+  await this.linksService.findOne(
+    +id,
+    principalId,
+  );
 
 
     if (!link) {
