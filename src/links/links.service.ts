@@ -17,6 +17,7 @@ import { WebhooksService } from '../webhooks/webhooks.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { LinkEntity } from './entities/link.entity';
+import { ClickLogEntity } from './entities/click-log.entity';
 import * as QRCode from 'qrcode';
 
 
@@ -39,10 +40,13 @@ export interface Link {
 @Injectable()
 export class LinksService {
   private links: Link[] = [];
-  private clickLogs: ClickLog[] = [];
 constructor(
   @InjectRepository(LinkEntity)
-private readonly linkRepository: Repository<LinkEntity>,
+  private readonly linkRepository: Repository<LinkEntity>,
+
+  @InjectRepository(ClickLogEntity)
+  private readonly clickLogRepository: Repository<ClickLogEntity>,
+
   private readonly cacheService: CacheService,
   private readonly webhooksService: WebhooksService,
 ) {}
@@ -427,125 +431,60 @@ async findByCode(code: string) {
     userAgent?: string,
     referrer?: string,
   ): Promise<void> {
+    const link = await this.linkRepository.findOne({ where: { id: linkId } });
+    if (!link) return;
 
-    const link =
-      this.links.find(
-        (l) => l.id === linkId,
-      );
+    link.clicks_count += 1;
+    await this.linkRepository.save(link);
 
+    const deviceType = this.detectDeviceType(userAgent);
 
-    if (!link) {
-      return;
-    }
-
-
-    link.clicks_count =
-      (link.clicks_count || 0) + 1;
-
-
-    const log: ClickLog = {
-
+    // Save click log entry to PostgreSQL database
+    const log = this.clickLogRepository.create({
       link_id: linkId,
+      device_type: deviceType,
+      referrer: referrer || 'direct',
+      user_agent: userAgent,
+    });
+    await this.clickLogRepository.save(log);
 
-      timestamp:
-        new Date(),
-
-      user_agent:
-        userAgent,
-
-      referrer:
-        referrer || 'direct',
-
-      device_type:
-        this.detectDeviceType(userAgent),
-    };
-
-
-    this.clickLogs.push(log);
-    await this.webhooksService.dispatch(
-  link.principal_id,
-  'link.clicked',
-  {
-    link_id: link.id,
-    code: link.code,
-    clicks_count: link.clicks_count,
-    device_type: log.device_type,
-  },
-);
+    await this.webhooksService.dispatch(link.principal_id, 'link.clicked', {
+      link_id: linkId,
+      code: link.code,
+      clicks_count: link.clicks_count,
+      device_type: deviceType,
+      referrer: referrer || 'direct',
+    });
   }
+  
+  async getAnalytics(linkId: number, principalId?: string) {
+    const link = await this.linkRepository.findOne({ where: { id: linkId } });
+    if (!link) return null;
 
+    // Fetch click logs directly from PostgreSQL repository
+    const logs = await this.clickLogRepository.find({
+      where: { link_id: linkId },
+      order: { createdAt: 'DESC' },
+    });
 
-
-  async getAnalytics(
-    linkId: number,
-  ): Promise<LinkAnalytics | null> {
-
-
-    const link =
-      this.links.find(
-        (l) => l.id === linkId,
-      );
-
-
-    if (!link) {
-      return null;
-    }
-
-
-    const logs =
-      this.clickLogs.filter(
-        (l) =>
-          l.link_id === linkId,
-      );
-
-
-    const byDevice = {
-      desktop: 0,
-      mobile: 0,
-      bot: 0,
-      other: 0,
-    };
-
-
-    const topReferrers:
-      Record<string, number> = {};
-
+    const deviceBreakdown = { desktop: 0, mobile: 0, bot: 0, other: 0 };
+    const referrerMap: Record<string, number> = {};
 
     for (const log of logs) {
-
-      byDevice[log.device_type]++;
-
-
-      const ref =
-        log.referrer || 'direct';
-
-
-      topReferrers[ref] =
-        (topReferrers[ref] || 0) + 1;
+      if (log.device_type in deviceBreakdown) {
+        deviceBreakdown[log.device_type]++;
+      }
+      const ref = log.referrer || 'direct';
+      referrerMap[ref] = (referrerMap[ref] || 0) + 1;
     }
 
-
     return {
-
       link_id: link.id,
-
       code: link.code,
-
-      total_clicks:
-        link.clicks_count || 0,
-
-
-      by_device: byDevice,
-
-
-      top_referrers:
-        topReferrers,
-
-
-      recent_clicks:
-        [...logs]
-        .reverse()
-        .slice(0,10),
+      total_clicks: link.clicks_count,
+      by_device: deviceBreakdown,
+      top_referrers: referrerMap,
+      recent_clicks: logs.slice(0, 10),
     };
   }
   async createBulk(

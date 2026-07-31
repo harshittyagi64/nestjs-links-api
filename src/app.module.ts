@@ -23,6 +23,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LinkEntity } from './links/entities/link.entity';
 import { WebhookEntity } from './webhooks/entities/webhook.entity';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ClickLogEntity } from './links/entities/click-log.entity';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgrespassword',
   database: process.env.DB_NAME || 'links_db',
-  entities: [LinkEntity, WebhookEntity],
+  entities: [LinkEntity, WebhookEntity, ClickLogEntity],
   synchronize: process.env.NODE_ENV !== 'production',
 }),
   LinksModule,
