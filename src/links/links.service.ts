@@ -14,6 +14,9 @@ import { CreateLinkDto } from './dto/create-link.dto';
 import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, IsNull } from 'typeorm';
+import { LinkEntity } from './entities/link.entity';
 import * as QRCode from 'qrcode';
 
 
@@ -38,6 +41,8 @@ export class LinksService {
   private links: Link[] = [];
   private clickLogs: ClickLog[] = [];
 constructor(
+  @InjectRepository(LinkEntity)
+private readonly linkRepository: Repository<LinkEntity>,
   private readonly cacheService: CacheService,
   private readonly webhooksService: WebhooksService,
 ) {}
@@ -51,7 +56,7 @@ async verifyPassword(
   submittedPassword: string,
 ): Promise<boolean> {
 
-  const link = this.findByCode(code);
+  const link = await this.findByCode(code);
 
   if (!link.password) {
     return false;
@@ -287,27 +292,18 @@ async findPaginated(
 
     return link;
   }
+async findByCode(code: string) {
+  const link = await this.linkRepository.findOne({
+    where: { code },
+  });
 
-
-
-  findByCode(code: string) {
-    const link =
-      this.links.find(
-        (item) =>
-          item.code === code,
-      );
-
-
-    if (!link) {
-      throw new NotFoundException(
-        'Short URL not found',
-      );
-    }
-
-    return link;
+  if (!link) {
+    throw new NotFoundException('Short URL not found');
   }
 
-
+  return link;
+}
+  
 
   async update(
   id: number,
@@ -604,4 +600,5 @@ async getLinkStats(
   };
 }
 }
+
 

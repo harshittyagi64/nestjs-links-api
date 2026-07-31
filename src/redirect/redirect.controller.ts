@@ -32,9 +32,7 @@ export class RedirectController {
     @Res() res: Response,
   ) {
 
-    const link =
-      this.linksService.findByCode(code);
-
+const link = await this.linksService.findByCode(code);
 
     // Expiry check
     if (this.linksService.isExpired(link)) {
@@ -121,9 +119,9 @@ export class RedirectController {
   ) {
 
 
-    const link =
-      this.linksService.findByCode(code);
-
+    
+const link =
+  await this.linksService.findByCode(code);
 
 
     // Check password

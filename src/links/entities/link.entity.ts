@@ -38,9 +38,9 @@ export class LinkEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   domain?: string;
 
-  @CreateDateColumn({ type: 'timestamptz' })
-  createdAt: Date;
+  @CreateDateColumn({ type: 'timestamptz', name: 'created_at' })
+  created_at: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
-  updatedAt: Date;
+  @UpdateDateColumn({ type: 'timestamptz', name: 'updated_at' })
+  updated_at: Date;
 }
