@@ -484,7 +484,7 @@ async findByCode(code: string) {
       total_clicks: link.clicks_count,
       by_device: deviceBreakdown,
       top_referrers: referrerMap,
-      recent_clicks: logs.slice(0, 10),
+      recent_clicks: logs.slice(0, 10)
     };
   }
   async createBulk(
