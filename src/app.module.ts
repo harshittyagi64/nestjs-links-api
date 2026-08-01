@@ -23,30 +23,40 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LinkEntity } from './links/entities/link.entity';
 import { WebhookEntity } from './webhooks/entities/webhook.entity';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { envValidationSchema } from './config/env.schema';
 import { ClickLogEntity } from './links/entities/click-log.entity';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+  isGlobal: true,
+  validationSchema: envValidationSchema,
+}),
   ThrottlerModule.forRoot([
     {
       ttl: 60000,
       limit: 10,
     },
   ]),
-  TypeOrmModule.forRoot({
-  type: 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '5432', 10),
-  username: process.env.DB_USERNAME || 'postgres',
-  password: process.env.DB_PASSWORD || 'postgrespassword',
-  database: process.env.DB_NAME || 'links_db',
+  TypeOrmModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (configService: ConfigService) => ({
+    type: 'postgres',
+    host: configService.get<string>('DB_HOST'),
+    port: configService.get<number>('DB_PORT'),
+    username: configService.get<string>('DB_USERNAME'),
+    password: configService.get<string>('DB_PASSWORD'),
+    database: configService.get<string>('DB_NAME'),
 
-  entities: [LinkEntity, WebhookEntity, ClickLogEntity],
+    entities: [LinkEntity, WebhookEntity, ClickLogEntity],
 
-  migrations: ['dist/migrations/*.js'],
-  migrationsRun: true,
+    migrations: ['dist/migrations/*.js'],
+    migrationsRun: true,
 
-  synchronize: false,
+    synchronize: false,
+  }),
 }),
   LinksModule,
   CacheModule,
