@@ -40,8 +40,13 @@ import { ClickLogEntity } from './links/entities/click-log.entity';
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgrespassword',
   database: process.env.DB_NAME || 'links_db',
+
   entities: [LinkEntity, WebhookEntity, ClickLogEntity],
-  synchronize: process.env.NODE_ENV !== 'production',
+
+  migrations: ['dist/migrations/*.js'],
+  migrationsRun: true,
+
+  synchronize: false,
 }),
   LinksModule,
   CacheModule,
