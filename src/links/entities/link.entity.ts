@@ -6,10 +6,13 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-
 @Entity('links')
+
 @Index(['code', 'domain'], { unique: true })
 @Index(['principal_id'])
+
+@Index('IDX_LINKS_CREATED_AT', ['created_at'])
+@Index('IDX_LINKS_CLICKS_COUNT', ['clicks_count'])
 export class LinkEntity {
   @PrimaryGeneratedColumn()
   id: number;

@@ -8,7 +8,13 @@ import {
 import { Type } from 'class-transformer';
 
 export class QueryLinksDto {
-
+@ApiPropertyOptional({
+  description: 'Sort by created_at or clicks_count',
+  example: 'created_at',
+})
+@IsOptional()
+@IsString()
+sort?: 'created_at' | 'clicks_count';
   @ApiPropertyOptional({
     description: 'Page number',
     example: 1,

@@ -153,13 +153,14 @@ findAll(
   @Query() queryDto: QueryLinksDto,
 ) {
   const principalId = req['principal_id'] as string;
-
-  return this.linksService.findPaginated(
-    principalId,
-    queryDto.page,
-    queryDto.limit,
-    queryDto.search,
-  );
+return this.linksService.findPaginated(
+  principalId,
+  queryDto.page,
+  queryDto.limit,
+  queryDto.search,
+  queryDto.tag,
+  queryDto.sort,
+);
 }
   @Get(':id')
   @ApiOperation({ summary: 'Get link by ID' })

@@ -197,50 +197,44 @@ isExpired(link: Link): boolean {
 
   return savedLink;
 }
-async findPaginated(
-  principalId: string,
-  page: number = 1,
-  limit: number = 10,
-  search?: string,
-  tag?: string,
-) {
-  const query =
-    this.linkRepository
-      .createQueryBuilder('link')
-      .where(
-        'link.principal_id = :principalId',
-        { principalId },
-      );
+
+  const query = this.linkRepository
+    .createQueryBuilder('link')
+    .where('link.principal_id = :principalId', {
+      principalId,
+    });
 
   if (search) {
     query.andWhere(
-      '(LOWER(link.code) LIKE :search OR LOWER(link.long_url) LIKE :search)',
-      {
-        search: `%${search.toLowerCase()}%`,
-      },
+      `to_tsvector('english', link.long_url)
+       @@ plainto_tsquery('english', :search)`,
+      { search },
     );
   }
 
   if (tag) {
-    query.andWhere(
-      ':tag = ANY(link.tags)',
-      { tag },
-    );
+    query.andWhere(':tag = ANY(link.tags)', {
+      tag,
+    });
   }
+
+  query.orderBy(
+    `link.${sort}`,
+    'DESC',
+  );
 
   const [data, total] =
     await query
-      .orderBy('link.created_at', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
   return {
     data,
-    total,
     page,
-    limit,
-    totalPages: Math.ceil(total / limit) || 1,
+    page_size: limit,
+    total,
+    total_pages: Math.ceil(total / limit),
   };
 }
   async findOne(
@@ -328,7 +322,16 @@ async findPaginated(
 
     this.links.splice(
       index,
-      1,
+      1,async findPaginated(
+  principalId: string,
+  page = 1,
+  limit = 10,
+  search?: string,
+  tag?: string,
+  sort: 'created_at' | 'clicks_count' = 'created_at',
+) {
+  limit = Math.min(limit, 50);
+
     );
 
 
