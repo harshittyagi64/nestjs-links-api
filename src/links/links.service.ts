@@ -197,6 +197,15 @@ isExpired(link: Link): boolean {
 
   return savedLink;
 }
+  async search(
+  principalId: string,
+  search?: string,
+  tag?: string,
+  page = 1,
+  limit = 10,
+  sort = 'created_at',
+) {
+
 
   const query = this.linkRepository
     .createQueryBuilder('link')
@@ -297,94 +306,32 @@ isExpired(link: Link): boolean {
 }
 
 
-  async remove(
-    id: number,
-    principalId: string,
+private detectDeviceType(
+  ua?: string,
+): 'desktop' | 'mobile' | 'bot' | 'other' {
+
+  if (!ua) return 'other';
+
+  const lower = ua.toLowerCase();
+
+  if (
+    lower.includes('bot') ||
+    lower.includes('crawler') ||
+    lower.includes('spider')
   ) {
-    const index =
-      this.links.findIndex(
-        (item) =>
-          item.id === id &&
-          item.principal_id === principalId,
-      );
-
-
-    if (index === -1) {
-      throw new NotFoundException(
-        'Link not found',
-      );
-    }
-
-
-    const deletedLink =
-      this.links[index];
-
-
-    this.links.splice(
-      index,
-      1,async findPaginated(
-  principalId: string,
-  page = 1,
-  limit = 10,
-  search?: string,
-  tag?: string,
-  sort: 'created_at' | 'clicks_count' = 'created_at',
-) {
-  limit = Math.min(limit, 50);
-
-    );
-
-
-    await this.cacheService.invalidateRedirectTarget(
-      deletedLink.code,
-    );
+    return 'bot';
   }
 
-
-
-    private detectDeviceType(
-    ua?: string,
-  ): 'desktop' | 'mobile' | 'bot' | 'other' {
-
-    if (!ua) return 'other';
-
-    const lower = ua.toLowerCase();
-
-
-    if (
-      lower.includes('bot') ||
-      lower.includes('crawler') ||
-      lower.includes('spider')
-    ) {
-      return 'bot';
-    }
-
-
-    if (
-      lower.includes('mobile') ||
-      lower.includes('android') ||
-      lower.includes('iphone')
-    ) {
-      return 'mobile';
-    }
-
-
-    if (
-      lower.includes('mozilla') ||
-      lower.includes('chrome') ||
-      lower.includes('safari') ||
-      lower.includes('windows') ||
-      lower.includes('macintosh')
-    ) {
-      return 'desktop';
-    }
-
-
-    return 'other';
+  if (
+    lower.includes('mobile') ||
+    lower.includes('android') ||
+    lower.includes('iphone')
+  ) {
+    return 'mobile';
   }
 
-
-
+  return 'desktop';
+}
   async recordClick(
     linkId: number,
     userAgent?: string,
@@ -446,6 +393,77 @@ isExpired(link: Link): boolean {
       recent_clicks: logs.slice(0, 10)
     };
   }
+  async findPaginated(
+  principalId: string,
+  page = 1,
+  limit = 10,
+  search?: string,
+  tag?: string,
+  sort: 'created_at' | 'clicks_count' = 'created_at',
+) {
+  limit = Math.min(limit, 50);
+
+  const query = this.linkRepository
+    .createQueryBuilder('link')
+    .where('link.principal_id = :principalId', {
+      principalId,
+    });
+
+  if (search) {
+    query.andWhere(
+      `to_tsvector('english', link.long_url)
+       @@ plainto_tsquery('english', :search)`,
+      { search },
+    );
+  }
+
+  if (tag) {
+    query.andWhere(':tag = ANY(link.tags)', {
+      tag,
+    });
+  }
+
+  query.orderBy(
+    `link.${sort}`,
+    'DESC',
+  );
+
+  const [data, total] = await query
+    .skip((page - 1) * limit)
+    .take(limit)
+    .getManyAndCount();
+
+  return {
+    data,
+    page,
+    page_size: limit,
+    total,
+    total_pages: Math.ceil(total / limit),
+  };
+}
+async remove(
+  id: number,
+  principalId: string,
+) {
+  const link = await this.linkRepository.findOne({
+    where: {
+      id,
+      principal_id: principalId,
+    },
+  });
+
+  if (!link) {
+    throw new NotFoundException('Link not found');
+  }
+
+  await this.linkRepository.remove(link);
+
+  await this.cacheService.invalidateRedirectTarget(
+    link.code,
+  );
+
+  return link;
+}
   async createBulk(
   principalId: string,
   links: CreateLinkDto[],
