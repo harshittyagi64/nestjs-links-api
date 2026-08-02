@@ -18,6 +18,9 @@ export class ClickLogEntity {
   @Column({ type: 'integer' })
   link_id: number;
 
+  @Column({ type: 'varchar', unique: true })
+event_id: string;
+
   @Column({ type: 'varchar', length: 32, default: 'other' })
   device_type: 'desktop' | 'mobile' | 'bot' | 'other';
 

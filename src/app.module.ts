@@ -26,6 +26,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { envValidationSchema } from './config/env.schema';
 import { HealthModule } from './health/health.module';
+import { QueueModule } from './queue/queue.module';
 import { ClickLogEntity } from './links/entities/click-log.entity';
 
 @Module({
@@ -63,6 +64,7 @@ import { ClickLogEntity } from './links/entities/click-log.entity';
   CacheModule,
   WebhooksModule,
   HealthModule,
+  QueueModule,
 ],
   controllers: [
     AppController,

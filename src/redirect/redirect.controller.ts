@@ -14,16 +14,19 @@ import { VerifyPasswordDto } from './dto/verify-password.dto';
 import type { Request, Response } from 'express';
 
 import { LinksService } from '../links/links.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { CacheService } from '../cache/cache.service';
 
 @Controller('r')
 export class RedirectController {
+constructor(
+  private readonly linksService: LinksService,
+  private readonly cacheService: CacheService,
 
-  constructor(
-    private readonly linksService: LinksService,
-    private readonly cacheService: CacheService,
-  ) {}
-
+  @InjectQueue('click-events')
+  private readonly clickQueue: Queue,
+) {}
 
   @Get(':code')
   async redirect(
@@ -73,13 +76,11 @@ const link = await this.linksService.findByCode(code);
 
     if (cachedUrl) {
 
-      await this.linksService.recordClick(
-        link.id,
-        userAgent,
-        referrer as string,
-      );
-
-
+      await this.clickQueue.add('click-event', {
+  linkId: link.id,
+  userAgent,
+  referrer: referrer as string,
+});
       return res.redirect(
         302,
         cachedUrl,
@@ -95,13 +96,11 @@ const link = await this.linksService.findByCode(code);
       3600,
     );
 
-
-    await this.linksService.recordClick(
-      link.id,
-      userAgent,
-      referrer as string,
-    );
-
+await this.clickQueue.add('click', {
+  linkId: link.id,
+  userAgent,
+  referrer: referrer as string,
+});
 
     return res.redirect(
       302,
@@ -143,12 +142,9 @@ const link =
     }
 
 
-
-    await this.linksService.recordClick(
-      link.id,
-    );
-
-
+await this.clickQueue.add('click', {
+  linkId: link.id,
+});
 
     return {
       redirect_url: link.long_url,
