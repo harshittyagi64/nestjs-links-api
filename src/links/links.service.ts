@@ -15,6 +15,8 @@ import { randomBytes } from 'crypto';
 import { CacheService } from '../cache/cache.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { InjectRepository } from '@nestjs/typeorm';
+import CircuitBreaker from 'opossum';
+import { Logger } from '@nestjs/common';
 import { Repository, IsNull } from 'typeorm';
 import { LinkEntity } from './entities/link.entity';
 import { ClickLogEntity } from './entities/click-log.entity';
@@ -39,8 +41,11 @@ export interface Link {
 
 @Injectable()
 export class LinksService {
+  private readonly logger = new Logger(LinksService.name);
+private linkLookupBreaker: CircuitBreaker;
   private links: Link[] = [];
 constructor(
+
   @InjectRepository(LinkEntity)
   private readonly linkRepository: Repository<LinkEntity>,
 
@@ -49,7 +54,65 @@ constructor(
 
   private readonly cacheService: CacheService,
   private readonly webhooksService: WebhooksService,
-) {}
+) {
+
+  this.linkLookupBreaker = new CircuitBreaker(
+    async (code: string) => {
+      return this.linkRepository.findOne({
+        where: { code },
+      });
+    },
+    {
+      timeout: 1000,
+      errorThresholdPercentage: 50,
+      resetTimeout: 30000,
+      volumeThreshold: 5,
+    },
+  );
+
+
+  this.linkLookupBreaker.fallback(
+    (code: string) => {
+      this.logger.warn(
+        `circuit_open_fallback code=${code}`,
+      );
+
+      throw new Error(
+        'Link service temporarily unavailable',
+      );
+    },
+  );
+
+
+  this.linkLookupBreaker.on(
+    'open',
+    () => {
+      this.logger.error(
+        'circuit_opened dependency=database',
+      );
+    },
+  );
+
+
+  this.linkLookupBreaker.on(
+    'halfOpen',
+    () => {
+      this.logger.warn(
+        'circuit_half_open dependency=database',
+      );
+    },
+  );
+
+
+  this.linkLookupBreaker.on(
+    'close',
+    () => {
+      this.logger.log(
+        'circuit_closed dependency=database',
+      );
+    },
+  );
+}
 private generateShortCode(): string {
   return randomBytes(4).toString('hex');
 }
@@ -69,17 +132,27 @@ async verifyPassword(
   return link.password === submittedPassword;
 }
 async findByCode(code: string): Promise<LinkEntity> {
+  return await this.linkLookupBreaker.fire(code);
+
+}
+private async lookupLink(
+  code: string,
+): Promise<LinkEntity> {
+
   const link = await this.linkRepository.findOne({
     where: { code },
   });
 
+
   if (!link) {
-    throw new NotFoundException('Short URL not found');
+    throw new NotFoundException(
+      'Short URL not found',
+    );
   }
+
 
   return link;
 }
-
 async generateQrCode(
   code: string,
   baseUrl: string,

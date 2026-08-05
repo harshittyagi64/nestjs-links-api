@@ -18,7 +18,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const requestId = request['request_id'] || 'N/A';
+    const requestId = request['requestId'] || 'N/A';
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'An unexpected error occurred';
@@ -26,6 +26,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
+
       const errorResponse = exception.getResponse();
 
       code = HttpStatus[status];
@@ -35,12 +36,21 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else if (typeof errorResponse === 'object') {
         message = (errorResponse as any).message;
       }
-    } else {
-      this.logger.error(
-        `Error Request ID: ${requestId}`,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
     }
+
+    // ✅ Always log errors
+    this.logger.error({
+      request_id: requestId,
+      method: request.method,
+      path: request.url,
+      status,
+      code,
+      message,
+      stack:
+        exception instanceof Error
+          ? exception.stack
+          : String(exception),
+    });
 
     response.status(status).json({
       error: {
