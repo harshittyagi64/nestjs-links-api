@@ -429,8 +429,8 @@ private detectDeviceType(
   );
 
   const [data, total] = await query
-    .skip((page - 1) * limit)
-    .take(limit)
+    .skip(page * limit)
+.take(limit)
     .getManyAndCount();
 
   return {

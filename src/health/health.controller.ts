@@ -1,29 +1,20 @@
 import { Controller, Get } from '@nestjs/common';
-import {
-  HealthCheckService,
-  HealthCheck,
-  TypeOrmHealthIndicator,
-  MemoryHealthIndicator,
-} from '@nestjs/terminus';
 
-@Controller('health')
+@Controller()
 export class HealthController {
-  constructor(
-    private readonly health: HealthCheckService,
-    private readonly db: TypeOrmHealthIndicator,
-    private readonly memory: MemoryHealthIndicator,
-  ) {}
+  @Get('live')
+  live() {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+    };
+  }
 
-  @Get()
-  @HealthCheck()
-  check() {
-    return this.health.check([
-      () => this.db.pingCheck('database'),
-      () =>
-        this.memory.checkHeap(
-          'memory_heap',
-          150 * 1024 * 1024,
-        ),
-    ]);
+  @Get('ready')
+  ready() {
+    return {
+      status: 'ready',
+      timestamp: new Date().toISOString(),
+    };
   }
 }
