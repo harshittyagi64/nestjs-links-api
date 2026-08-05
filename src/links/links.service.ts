@@ -153,6 +153,52 @@ private async lookupLink(
 
   return link;
 }
+private async retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+): Promise<T> {
+
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+
+    try {
+      return await fn();
+    } catch (error) {
+
+      lastError = error;
+
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      const baseDelay = 100;
+
+      const exponentialDelay =
+        baseDelay * Math.pow(2, attempt);
+
+      const jitter =
+        Math.floor(Math.random() * 50);
+
+      const delay =
+        exponentialDelay + jitter;
+
+
+      this.logger.warn({
+        event: 'retry_attempt',
+        attempt: attempt + 1,
+        delay_ms: delay,
+      });
+
+
+      await new Promise(resolve =>
+        setTimeout(resolve, delay)
+      );
+    }
+  }
+
+  throw lastError;
+}
 async generateQrCode(
   code: string,
   baseUrl: string,
