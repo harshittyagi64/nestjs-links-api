@@ -44,3 +44,23 @@ TypeORM Repository
 PostgreSQL
 
 Redis is used as a caching layer for frequently accessed data.
+## How to Run
+
+### Prerequisites
+- Node.js
+- PostgreSQL
+- Redis
+- Docker
+
+### Installation
+
+```bash
+pnpm install
+
+pnpm start:dev
+
+**API Documentation**
+```md
+## API Documentation
+
+Swagger/OpenAPI documentation is available when the application is running.
